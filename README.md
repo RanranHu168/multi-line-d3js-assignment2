@@ -21,9 +21,9 @@ We visualize and analyze a supply chain dataset using the following:
 
 ## 📁 Project Structure
 multi-line-d3js-assignment2/
-├── index.html # The main visualization (table + multi-line chart)
-├── Assignment 2.docx # The original assignment instructions
-└── README.md # This project documentation
+     index.html # The main visualization (table + multi-line chart)
+     Assignment 2.docx # The original assignment instructions
+     README.md # This project documentation
  
 > ⚠️ Note: The data file `data_sample.csv` is fetched from a public GitHub URL in the script. You can change the data path if hosting locally.
 
