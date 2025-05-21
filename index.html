@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Multi-Line Chart with Table</title>
+        <script src="https://cdn.jsdelivr.net/npm/d3@7.8.5/dist/d3.min.js"></script>
+        <style>
+            body{
+                font-family:Arial, sans-serif;
+                margin:20px;
+            }
+            /* MODIFIED: Make table and chart appear side-by-side */
+            #content-container {
+                display: flex;
+                justify-content: space-between;
+                gap: 20px;
+                align-items: flex-start;
+            }
+
+            /* MODIFIED: Ensure equal sizing for both table and chart sections */
+            #table-wrapper, #chart-wrapper {
+                flex: 0 0 50%;
+                max-width: 50%;
+            }
+            
+            #chart-container svg {
+                width: 100%;
+                height: auto;
+            }
+
+
+            table{
+                border-collapse: collapse;
+                width:100%;
+                margin-bottom:20px;
+                font-size: 13px;              /* Slightly smaller font */
+                table-layout: fixed;          /* Force equal column widths */
+                word-wrap: break-word;        /* Break long words to fit */
+            }
+
+
+            th,td{
+                border:1px solid #ddd;
+                padding:6px;
+                text-align:center;
+                word-break: break-word;      /* Wrap long text */
+                white-space: normal;         /* Allow wrapping */
+            }
+            th{
+                background-color: #f4f4f4;
+            }
+            svg{
+                display:block;
+                margin:auto;
+            }
+        </style>
+
+
+    </head>
+    <body>
+        <!-- MODIFIED: Grouped table and chart in one container -->
+        <div id="content-container">
+            <!--  Wrapped table section -->
+            <div id="table-wrapper">
+                <h2>Supply Chain Data Table</h2>
+                <div id="table-container"></div>
+            </div>
+
+            <!--  MODIFIED: Wrapped chart section -->
+            <div id="chart-wrapper">
+                <h2>Supply Chain Cost Analysis</h2>
+                <div id="chart-container"></div>
+            </div>
+        </div>
+ 
+
+
+
+
+        <script>
+            const url = "https://raw.githubusercontent.com/RanranHu168/Data-of-assignment-2/refs/heads/main/data_sample.csv";
+
+            const parseDate = d3.timeParse("%m/%d/%y");  
+            const formatDate = d3.timeFormat("%Y-%m-%d"); 
+            
+            
+
+
+            d3.csv(url).then(data=>{
+                // Loading data from "data-sample.csv" which is upload to my GitHub Desktop
+                console.log("CSV Columns:", Object.keys(data[0]));
+
+                // Formating data
+                data.forEach(d => {
+                    d.Date = parseDate(d.date); // Converting date format
+                    // Converting a string representation of a number from the CSV file into a numeric value (number type in JavaScript)
+                    d.EstimatedCost = +d.EstimatedCost || 0;
+                    d.RawMaterial = +d.RawMaterial || 0;
+                    d.Workmanship= +d.Workmanship || 0;
+                    d.StorageCost= +d.StorageCost || 0;
+
+                    // Caliculating the cost and the profit
+                    d.ActualCost = d.RawMaterial + d.Workmanship + d.StorageCost;
+                    d.SoldPrice = d.EstimatedCost * 1.1; 
+                    d.MarginOfProfit = d.SoldPrice - d.ActualCost;
+
+                });
+
+                // Creating table
+                createTable(data);
+
+                // Creating chart 
+                createMultiLineChart(data);
+
+            });
+
+            // Part1: Creating table!
+
+            function createTable(data){
+                const tableContainer = d3.select("#table-container");
+                const table = tableContainer.append("table");
+
+                // Table Header
+                const thead = table.append("thead").append("tr");
+                const colunms = ["Date", "EstimatedCost", "RawMaterial", "Workmanship", "StorageCost","ActualCost", "SoldPrice", "MarginOfProfit"];
+                thead.selectAll("th")
+                    .data(colunms)
+                    .enter()
+                    .append("th")
+                    .text(d => d);
+                
+                // Table Data
+                const tbody = table.append("tbody");
+                tbody.selectAll("tr")
+                .data(data)
+                .enter()
+                .append("tr")
+                .selectAll("td")
+                .data(d => colunms.map(col => col === "Date" ? formatDate(d.Date) : isNaN(d[col]) ? "N/A" : d[col].toFixed(2)))
+                .enter()
+                .append("td")
+                .text(d => d);
+
+            }
+
+
+            // Part2: Creating MultiLineChart
+            function createMultiLineChart(data){
+                const margin = {top:50, right:200, bottom:80, left:100};
+                const width= 1000-margin.left -margin.right;
+                const height = 600 -margin.top - margin.bottom;
+
+                const svg = d3.select("#chart-container")
+                .append("svg")
+                .attr("viewBox", `0 0 ${width + margin.left + margin.right} ${height + margin.top + margin.bottom + 50}`)
+                .append("g")
+                .attr("transform", `translate(${margin.left}, ${margin.top})`);
+
+
+                // X axis
+                const xScale = d3.scaleTime()
+                .domain(d3.extent(data, d => d.Date))
+                .range([0, width]);
+
+                //y axis
+                const yScale = d3.scaleLinear()
+                .domain([0, d3.max(data, d => d.SoldPrice || 0)*1.3])
+                .range([height, 0]);
+
+                // color
+
+                const color = d3.scaleOrdinal(d3.schemeCategory10);
+
+                // Define line generator
+                const lineGenerator = d3.line()
+                .x(d => xScale(d.Date))
+                .y(d => yScale(d.EstimatedCost))
+
+                //data fields
+                const lines =[
+                    {key: "EstimatedCost", name:"Estimated Cost"},
+                    {key: "ActualCost", name:"Actual Cost"},
+                    {key:"SoldPrice", name:"Sold Price"},
+                    {key:"MarginOfProfit", name:"Margin of Profit"}
+                ];
+
+                // Drawing line chart 
+                lines.forEach((line, index) => {
+                    svg.append("path")
+                    .datum(data)
+                    .attr("fill", "none")
+                    .attr("stroke", color(index % 10))
+                    .attr("stroke-width", 2)
+                    .attr("d", d3.line()
+                    .x(d => xScale(d.Date))
+                    .y(d => yScale(d[line.key]))(data))
+                    .transition()
+                    .duration(1000)
+                    .attrTween("stroke-dasharray", function() {
+                        const length = this.getTotalLength();
+                        return function(t) {
+                            return `${t * length}, ${length}`;
+                        };
+                    });
+                });
+
+
+
+                // Adding X axis
+
+                svg.append("g")
+                .attr("transform", `translate(0,${height})`)
+                .call(d3.axisBottom(xScale).tickFormat(d3.timeFormat("%Y-%m")))
+                .selectAll("text")
+                .style("text-anchor", "end")
+                .attr("transform", "rotate(-45)");
+
+                // Adding Y axis
+                svg.append("g").call(d3.axisLeft(yScale));
+
+                // Add an arrow to the X-axis
+                svg.append("polygon")
+                .attr("points", `${width},${height} ${width-10},${height-5} ${width-10},${height+5}`)
+                .attr("fill", "black");
+
+                // Add an arrow to the Y-axis
+                svg.append("polygon")
+                .attr("points", `0,0 -5,10 5,10`)
+                .attr("fill", "black");
+
+                //Adding legend
+                const legend = svg.append("g")
+                .attr("transform", `translate(${width + 20}, 20)`);
+
+                lines.forEach((line, index) => {
+                    const legendRow = legend.append("g")
+                    .attr("transform", `translate(0, ${index * 30})`);
+
+                    legendRow.append("rect")
+                    .attr("width", 15)
+                    .attr("height", 15)
+                    .attr("fill", color(index));
+
+                    legendRow.append("text")
+                    .attr("x", 25)
+                    .attr("y", 12)
+                    .style("font-size", "14px")
+                    .text(line.name);
+
+                });
+
+                // Adding Title
+
+                svg.append("text")
+                .attr("x", width / 2)
+                .attr("y", -20)
+                .attr("text-anchor", "middle")
+                .style("font-size", "18px")
+                .style("font-weight", "bold")
+                .text("Multi-line Chart of Supply Chain Costs");
+
+
+            }
+
+
+
+        </script>
+
+    </body>
+    </html>
